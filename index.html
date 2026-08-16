@@ -167,5 +167,157 @@
 
 </form>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // 日本語印字用フォント(さわらびゴシック)の取得元。
+  // 取得や埋め込みに失敗した場合は既定フォント(Helvetica)にフォールバックする
+  const JAPANESE_FONT_URL = 'https://raw.githubusercontent.com/google/fonts/main/ofl/sawarabigothic/SawarabiGothic-Regular.ttf';
+  const JAPANESE_FONT_NAME = 'SawarabiGothic';
+  let japaneseFontBase64 = null; // 取得済みフォントデータのキャッシュ(2回目以降は再取得しない)
+
+  // ArrayBufferをBase64文字列に変換する(サイズが大きくてもスタックオーバーフローしないよう分割処理)
+  function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+    }
+    return btoa(binary);
+  }
+
+  // 日本語フォントを取得してjsPDFに埋め込む。成功時はtrue、失敗時はfalseを返す
+  async function loadJapaneseFont(pdf) {
+    try {
+      if (!japaneseFontBase64) {
+        const res = await fetch(JAPANESE_FONT_URL);
+        if (!res.ok) throw new Error('フォント取得に失敗しました: ' + res.status);
+        japaneseFontBase64 = arrayBufferToBase64(await res.arrayBuffer());
+      }
+      pdf.addFileToVFS(JAPANESE_FONT_NAME + '.ttf', japaneseFontBase64);
+      pdf.addFont(JAPANESE_FONT_NAME + '.ttf', JAPANESE_FONT_NAME, 'normal');
+      pdf.setFont(JAPANESE_FONT_NAME);
+      return true;
+    } catch (err) {
+      console.warn('日本語フォントの読み込みに失敗したため、既定フォントで代用します。', err);
+      return false;
+    }
+  }
+
+  // 指定した幅・高さ(mm)に収まる最大のフォントサイズ(pt)を探索する
+  function fitFontSize(pdf, lines, maxWidthMm, maxHeightMm) {
+    const minFontSize = 4;
+    for (let fontSize = 32; fontSize >= minFontSize; fontSize--) {
+      pdf.setFontSize(fontSize);
+      const lineHeightMm = fontSize * 0.3528 * 1.2; // pt→mm換算(行間込み)
+      const totalHeightMm = lineHeightMm * lines.length;
+      const maxLineWidthMm = lines.reduce((max, line) => Math.max(max, pdf.getTextWidth(line)), 0);
+      if (totalHeightMm <= maxHeightMm && maxLineWidthMm <= maxWidthMm) {
+        return fontSize;
+      }
+    }
+    return minFontSize;
+  }
+
+  function getNumber(id) {
+    return parseFloat(document.getElementById(id).value) || 0;
+  }
+
+  async function createPdf() {
+    const text = document.getElementById('label-text').value;
+    if (!text.trim()) {
+      alert('印字するテキストを入力してください。');
+      return;
+    }
+
+    const marginTop = getNumber('margin-top');
+    const marginBottom = getNumber('margin-bottom');
+    const marginLeft = getNumber('margin-left');
+    const marginRight = getNumber('margin-right');
+    const labelWidth = getNumber('label-width');
+    const labelHeight = getNumber('label-height');
+    const gapHorizontal = getNumber('gap-horizontal');
+    const gapVertical = getNumber('gap-vertical');
+    const offsetTop = getNumber('offset-top');
+    const offsetBottom = getNumber('offset-bottom');
+    const offsetLeft = getNumber('offset-left');
+    const offsetRight = getNumber('offset-right');
+    const showGuideLine = document.getElementById('show-guide-line').checked;
+
+    if (labelWidth <= 0 || labelHeight <= 0) {
+      alert('ラベルサイズは1mm以上で指定してください。');
+      return;
+    }
+
+    // 用紙(A4)の印字可能領域から、配置できる列数・行数を自動計算する
+    const PAGE_WIDTH = 210;
+    const PAGE_HEIGHT = 297;
+    const availableWidth = PAGE_WIDTH - marginLeft - marginRight;
+    const availableHeight = PAGE_HEIGHT - marginTop - marginBottom;
+    const columns = Math.floor((availableWidth + gapHorizontal) / (labelWidth + gapHorizontal));
+    const rows = Math.floor((availableHeight + gapVertical) / (labelHeight + gapVertical));
+
+    if (columns < 1 || rows < 1) {
+      alert('現在の設定では用紙にラベルを1つも配置できません。余白やラベルサイズを見直してください。');
+      return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+
+    const fontLoaded = await loadJapaneseFont(pdf);
+    if (!fontLoaded) {
+      pdf.setFont('helvetica', 'normal');
+    }
+
+    const lines = text.split('\n');
+    const horizontalOffset = offsetLeft - offsetRight;
+    const verticalOffset = offsetTop - offsetBottom;
+    const padding = 2; // ラベル内側の余白(mm)
+
+    if (showGuideLine) {
+      pdf.setDrawColor(180, 180, 180);
+      pdf.setLineWidth(0.1);
+    }
+
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < columns; col++) {
+        const x = marginLeft + col * (labelWidth + gapHorizontal) + horizontalOffset;
+        const y = marginTop + row * (labelHeight + gapVertical) + verticalOffset;
+
+        if (showGuideLine) {
+          pdf.rect(x, y, labelWidth, labelHeight);
+        }
+
+        // ラベル枠に収まるフォントサイズを求めてから、水平・垂直中央に配置する
+        const fontSize = fitFontSize(pdf, lines, labelWidth - padding * 2, labelHeight - padding * 2);
+        pdf.setFontSize(fontSize);
+        const lineHeightMm = fontSize * 0.3528 * 1.2;
+        const totalTextHeight = lineHeightMm * lines.length;
+        const startY = y + (labelHeight - totalTextHeight) / 2 + lineHeightMm * 0.8;
+
+        lines.forEach(function (line, i) {
+          const lineWidth = pdf.getTextWidth(line);
+          const startX = x + (labelWidth - lineWidth) / 2;
+          pdf.text(line, startX, startY + i * lineHeightMm);
+        });
+      }
+    }
+
+    pdf.save('labels.pdf');
+  }
+
+  document.getElementById('create-pdf-btn').addEventListener('click', function () {
+    createPdf().catch(function (err) {
+      console.error(err);
+      alert('PDFの作成に失敗しました。');
+    });
+  });
+})();
+</script>
+
 </body>
 </html>
