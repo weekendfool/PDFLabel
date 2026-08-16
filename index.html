@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDFラベルメーカー</title>
+<style>
+  body {
+    font-family: sans-serif;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px;
+    background: #f7f7f7;
+    color: #222;
+  }
+  h1 {
+    font-size: 1.4rem;
+    text-align: center;
+  }
+  fieldset {
+    margin-bottom: 16px;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+  }
+  legend {
+    padding: 0 6px;
+    font-weight: bold;
+  }
+  label {
+    display: block;
+    margin-top: 8px;
+    font-size: 0.9rem;
+  }
+  input[type="number"],
+  textarea {
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 4px;
+    padding: 6px;
+    font-size: 1rem;
+  }
+  textarea {
+    resize: vertical;
+    min-height: 80px;
+  }
+  .paper-info {
+    margin: 0;
+  }
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .checkbox-row label {
+    margin-top: 0;
+  }
+  .grid-4 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 12px;
+  }
+  #create-pdf-btn {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    font-size: 1.1rem;
+    background: #2a6df4;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  #create-pdf-btn:hover {
+    background: #1d55c8;
+  }
+</style>
+</head>
+<body>
+
+<h1>PDFラベルメーカー</h1>
+
+<form id="label-form">
+
+  <fieldset>
+    <legend>用紙</legend>
+    <p class="paper-info">A4(210mm × 297mm)固定</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>余白(mm)</legend>
+    <div class="grid-4">
+      <label>上
+        <input type="number" id="margin-top" value="20" min="0">
+      </label>
+      <label>下
+        <input type="number" id="margin-bottom" value="20" min="0">
+      </label>
+      <label>左
+        <input type="number" id="margin-left" value="15" min="0">
+      </label>
+      <label>右
+        <input type="number" id="margin-right" value="15" min="0">
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>ラベルサイズ(mm)</legend>
+    <div class="grid-4">
+      <label>幅
+        <input type="number" id="label-width" value="70" min="1">
+      </label>
+      <label>高さ
+        <input type="number" id="label-height" value="30" min="1">
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>ラベル間の余白(mm)</legend>
+    <div class="grid-4">
+      <label>横方向
+        <input type="number" id="gap-horizontal" value="2" min="0">
+      </label>
+      <label>縦方向
+        <input type="number" id="gap-vertical" value="2" min="0">
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>印字位置オフセット(mm)</legend>
+    <div class="grid-4">
+      <label>上
+        <input type="number" id="offset-top" value="0">
+      </label>
+      <label>下
+        <input type="number" id="offset-bottom" value="0">
+      </label>
+      <label>左
+        <input type="number" id="offset-left" value="0">
+      </label>
+      <label>右
+        <input type="number" id="offset-right" value="0">
+      </label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>ガイド線</legend>
+    <div class="checkbox-row">
+      <input type="checkbox" id="show-guide-line" checked>
+      <label for="show-guide-line">ラベル境界線を印字する</label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>印字テキスト</legend>
+    <label for="label-text">すべてのラベルに同じ内容が印字されます</label>
+    <textarea id="label-text" placeholder="ここに印字するテキストを入力してください"></textarea>
+  </fieldset>
+
+  <button type="button" id="create-pdf-btn">PDFを作成</button>
+
+</form>
+
+</body>
+</html>
